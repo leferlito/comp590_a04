@@ -1,3 +1,4 @@
+%% Team: AJ Valentino and Lauren Ferlito
 -module(server).
 -export([start/0, main_loop/1, parse_message/1, serv1/1, serv2/1, serv3/1]).
 
