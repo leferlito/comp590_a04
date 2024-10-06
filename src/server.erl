@@ -90,6 +90,16 @@ serv2(Next) ->
         halt ->
             io:format("(serv2) Halting...~n", []),
             Next ! halt; % Forward halt to serv3
+
+        [Head | Tail] when is_integer(Head) ->
+            Sum = lists:sum([X || X <- [Head | Tail], is_number(X)]),
+            io:format("(serv2) Sum of list with integer head: ~p = ~p~n", [[Head | Tail], Sum]),
+            serv2(Next);
+
+        [Head | Tail] when is_float(Head) ->
+            Product = lists:foldl(fun(X, Prod) -> X * Prod end, 1, [X || X <- [Head | Tail]]),
+            io:format("(serv2) Product of list with float head: ~p = ~p~n", [[Head | Tail], Product]),
+            serv2(Next);
             
         Msg ->
             io:format("(serv2) Forwarding message: ~p~n", [Msg]),
@@ -102,7 +112,11 @@ serv3(UnhandledCount) ->
         halt ->
             io:format("(serv3) Halting...~n"),
             io:format("(serv3) Total unhandled messages: ~p~n", [UnhandledCount]);
-            
+        
+        {error, Reason} ->
+            io:format("(serv3) Error: ~p~n", [Reason]),
+            serv3(UnhandledCount);
+
         Other ->
             io:format("(serv3) Not handled: ~p~n", [Other]),
             serv3(UnhandledCount + 1)  % Increment the count for unhandled messages
