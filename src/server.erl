@@ -16,11 +16,12 @@ main_loop(Serv1) ->
     case parse_message(string:trim(Message)) of
         all_done ->
             Serv1 ! halt, % Send the halt message to serv1, which will propagate down
-            io:format("Shutting down...~n");
-        Msg when is_atom(Msg) -> % Check if Msg is an atom before forwarding
+            io:format("Shutting down...~n"),
+            ok;
+        {ok, Msg} ->
             Serv1 ! Msg,
             main_loop(Serv1);
-        Msg ->
+        {error, Msg} ->
             io:format("Invalid input or unsupported type: ~p~n", [Msg]),
             main_loop(Serv1)  % Loop back for invalid inputs
     end.
@@ -28,14 +29,17 @@ main_loop(Serv1) ->
 parse_message("all_done") -> 
     all_done;
 parse_message(Input) ->
-    InputStr = string:trim(Input),  % Trim whitespace and newline
-    case catch erl_eval:string_to_term(InputStr) of
-        {'EXIT', _} -> 
-            io:format("Invalid input: ~s~n", [InputStr]),
-            all_done;  % Return to main_loop if invalid input
-        Term -> 
-            io:format("Converted input to atom: ~p~n", [Term]),  % Print the converted atom
-            Term  % Successfully converted string to Erlang term
+    case erl_scan:string(Input++".") of
+        {ok, Tokens, _} ->
+            case erl_parse:parse_exprs(Tokens) of
+                {ok, [Expr]} ->
+                    {value, Term, _} = erl_eval:expr(Expr, []),
+                    {ok, Term};
+                {error, Error} ->
+                    {error, Error}
+            end;
+        {error, Error, _} ->
+            {error, Error}
     end.
 
 serv1(Next) ->
@@ -43,6 +47,37 @@ serv1(Next) ->
         halt ->
             io:format("(serv1) Halting...~n", []),
             Next ! halt; % Forward halt to serv2
+
+        {add, A, B} when is_number(A), is_number(B) ->
+            Result = A + B,
+            io:format("(serv1) Adding ~p + ~p = ~p~n", [A, B, Result]),
+            serv1(Next);
+
+        {sub, A, B} when is_number(A), is_number(B) ->
+            Result = A - B,
+            io:format("(serv1) Subtracting ~p - ~p = ~p~n", [A, B, Result]),
+            serv1(Next);
+
+        {mult, A, B} when is_number(A), is_number(B) ->
+            Result = A * B,
+            io:format("(serv1) Multiplying ~p * ~p = ~p~n", [A, B, Result]),
+            serv1(Next);
+
+        % Used "divide" because "div" is a key word, may want to find fix later
+        {divide, A, B} when is_number(A), is_number(B) ->
+            Result = A / B,
+            io:format("(serv1) Dividing ~p / ~p = ~p~n", [A, B, Result]),
+            serv1(Next);
+
+        {neg, A} when is_number(A) ->
+            Result = -A,
+            io:format("(serv1) Negating ~p = ~p~n", [A, Result]),
+            serv1(Next);
+
+        {sqrt, A} when is_number(A) ->
+            Result = math:sqrt(A),
+            io:format("(serv1) Square root of ~p = ~p~n", [A, Result]),
+            serv1(Next);
             
         Msg ->
             io:format("(serv1) Received message: ~p~n", [Msg]),
