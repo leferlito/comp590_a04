@@ -65,7 +65,7 @@ serv1(Next) ->
             io:format("(serv1) Multiplying ~p * ~p = ~p~n", [A, B, Result]),
             serv1(Next);
 
-        % Used "divide" because "div" is a key word, may want to find fix later
+        % Used "divide" because "div" is a key word
         {divide, A, B} when is_number(A), is_number(B) ->
             Result = A / B,
             io:format("(serv1) Dividing ~p / ~p = ~p~n", [A, B, Result]),
