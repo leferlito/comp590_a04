@@ -3,6 +3,7 @@
 -export([start/0, main_loop/1, parse_message/1, serv1/1, serv2/1, serv3/1]).
 
 start() ->
+    % Create in reverse order to pass servers as arguments
     Serv3 = spawn(fun() -> serv3(0) end),
     Serv2 = spawn(fun() -> serv2(Serv3) end),
     Serv1 = spawn(fun() -> serv1(Serv2) end),
@@ -19,7 +20,7 @@ main_loop(Serv1) ->
             io:format("Shutting down...~n"),
             ok;
         {ok, Msg} ->
-            Serv1 ! Msg,
+            Serv1 ! Msg, % Sent valid messages
             main_loop(Serv1);
         {error, Msg} ->
             io:format("Invalid input or unsupported type: ~p~n", [Msg]),
@@ -48,6 +49,7 @@ serv1(Next) ->
             io:format("(serv1) Halting...~n", []),
             Next ! halt; % Forward halt to serv2
 
+        % Math Functions
         {add, A, B} when is_number(A), is_number(B) ->
             Result = A + B,
             io:format("(serv1) Adding ~p + ~p = ~p~n", [A, B, Result]),
@@ -92,12 +94,12 @@ serv2(Next) ->
             Next ! halt; % Forward halt to serv3
 
         [Head | Tail] when is_integer(Head) ->
-            Sum = lists:sum([X || X <- [Head | Tail], is_number(X)]),
+            Sum = lists:sum([X || X <- [Head | Tail], is_number(X)]), % Sum function sums all the items in a list
             io:format("(serv2) Sum of list with integer head: ~p = ~p~n", [[Head | Tail], Sum]),
             serv2(Next);
 
         [Head | Tail] when is_float(Head) ->
-            Product = lists:foldl(fun(X, Prod) -> X * Prod end, 1, [X || X <- [Head | Tail]]),
+            Product = lists:foldl(fun(X, Prod) -> X * Prod end, 1, [X || X <- [Head | Tail]]), % Foldl calls fun on successive elements in the list
             io:format("(serv2) Product of list with float head: ~p = ~p~n", [[Head | Tail], Product]),
             serv2(Next);
             
