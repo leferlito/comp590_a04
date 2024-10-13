@@ -1,6 +1,6 @@
 %% Team: AJ Valentino and Lauren Ferlito
 -module(server).
--export([start/0, main_loop/1, parse_message/1, serv1/1, serv2/1, serv3/1]).
+-export([start/0, main_loop/3, parse_message/1, serv1/1, serv2/1, serv3/1]).
 
 start() ->
     % Create in reverse order to pass servers as arguments
@@ -9,9 +9,9 @@ start() ->
     Serv1 = spawn(fun() -> serv1(Serv2) end),
     
     % Main loop: Send messages to serv1
-    main_loop(Serv1).
+    main_loop(Serv1, Serv2, Serv3).
 
-main_loop(Serv1) ->
+main_loop(Serv1, Serv2, Serv3) ->
     io:format("Enter a message (or 'all_done' to exit):~n", []),
     Message = io:get_line("> "),
     case parse_message(string:trim(Message)) of
@@ -19,16 +19,31 @@ main_loop(Serv1) ->
             Serv1 ! halt, % Send the halt message to serv1, which will propagate down
             io:format("Shutting down...~n"),
             ok;
+        update1 ->
+            Serv1 ! update, % Send update message
+            main_loop(Serv1, Serv2, Serv3);
+        update2 ->
+            Serv2 ! update, % Send update message
+            main_loop(Serv1, Serv2, Serv3);
+        update3 ->
+            Serv3 ! update, % Send update message
+            main_loop(Serv1, Serv2, Serv3);
         {ok, Msg} ->
             Serv1 ! Msg, % Sent valid messages
-            main_loop(Serv1);
+            main_loop(Serv1, Serv2, Serv3);
         {error, Msg} ->
             io:format("Invalid input or unsupported type: ~p~n", [Msg]),
-            main_loop(Serv1)  % Loop back for invalid inputs
+            main_loop(Serv1, Serv2, Serv3)  % Loop back for invalid inputs
     end.
 
 parse_message("all_done") -> 
     all_done;
+parse_message("update1") -> 
+    update1;
+parse_message("update2") -> 
+    update2;
+parse_message("update3") -> 
+    update3;
 parse_message(Input) ->
     case erl_scan:string(Input++".") of
         {ok, Tokens, _} ->
@@ -48,7 +63,9 @@ serv1(Next) ->
         halt ->
             io:format("(serv1) Halting...~n", []),
             Next ! halt; % Forward halt to serv2
-
+        update ->
+            io:format("(serv1) Updating serv1...~n", []),
+            server:serv1(Next);  % Call the updated version of serv1
         % Math Functions
         {add, A, B} when is_number(A), is_number(B) ->
             Result = A + B,
@@ -92,6 +109,9 @@ serv2(Next) ->
         halt ->
             io:format("(serv2) Halting...~n", []),
             Next ! halt; % Forward halt to serv3
+        update ->
+            io:format("(serv2) Updating serv2...~n", []),
+            server:serv2(Next);  % Call the updated version of serv2
 
         [Head | Tail] when is_integer(Head) ->
             Sum = lists:sum([X || X <- [Head | Tail], is_number(X)]), % Sum function sums all the items in a list
@@ -114,7 +134,9 @@ serv3(UnhandledCount) ->
         halt ->
             io:format("(serv3) Halting...~n"),
             io:format("(serv3) Total unhandled messages: ~p~n", [UnhandledCount]);
-        
+        update ->
+            io:format("(serv3) Updating serv3...~n", []),
+            server:serv3(UnhandledCount);  % Call the updated version of serv3
         {error, Reason} ->
             io:format("(serv3) Error: ~p~n", [Reason]),
             serv3(UnhandledCount);
